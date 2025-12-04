@@ -1,0 +1,8 @@
+{
+  "version": "0.8",
+  "missing_tools": [
+    {"module": "Pandbestemming-scan", "status": "planned"},
+    {"module": "Specialist-spoed afstand", "status": "missing"},
+    {"module": "Feodale-allianties scanner", "status": "not realistic (statement-only)"}
+  ]
+}
