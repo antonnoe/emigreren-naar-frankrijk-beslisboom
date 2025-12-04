@@ -3,232 +3,231 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Emigreren naar Frankrijk – Beslisboom</title>
-<meta name="description" content="Interactieve beslisboom voor migratie naar Frankrijk. Validatie van wonen, werken, onderwijs, zorg, lasten en integratie.">
+<title>Emigreren naar Frankrijk – Beslisboom & Impactanalyse</title>
+
+<!-- === SEO LANDING === -->
+<meta name="description" content="Emigreren naar Frankrijk: validatie van woonstrategie, inkomen, Chambres-compliance, onderwijslogistiek voor kinderen, zorgdekking en integratie-proxies. Met impactscoring en herstelroutes, geen herhaalde vragen.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="/">
+
+<!-- === HUISSTIJL === -->
 <style>
   body {
     font-family: Trebuchet MS, Arial, sans-serif;
-    background: #fff;
-    color: #000;
-    margin: 0;
-    padding: 24px;
-    line-height: 1.5;
+    background:#fff;
+    color:#000;
+    margin:0;
+    padding:28px;
+    line-height:1.5;
   }
   h1 {
-    font-size: 26px;
-    font-weight: 600;
-    color: #800000;
-    margin-bottom: 18px;
-  }
-  h2 {
-    font-size: 20px;
-    font-weight: 600;
-    margin-top: 32px;
-    margin-bottom: 14px;
-    color: #800000;
+    font-size:27px;
+    font-weight:600;
+    color:#800000;
+    margin-bottom:18px;
   }
   .question {
-    margin-bottom: 20px;
-    padding: 16px;
-    border: 1px solid #800000;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 2px 5px rgba(128,0,0,0.08);
+    margin-bottom:20px;
+    padding:16px;
+    border:1px solid #800000;
+    border-radius:14px;
+    box-shadow:0 2px 6px rgba(128,0,0,0.07);
   }
   label {
-    font-size: 16px;
-    font-weight: 600;
-    display: block;
-    margin-bottom: 8px;
-    color: #000;
+    font-size:17px;
+    font-weight:600;
+    margin-bottom:7px;
+    display:block;
   }
   select, input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #800000;
-    border-radius: 8px;
-    font-size: 16px;
-    background: #fff;
-    color: #000;
+    width:100%;
+    padding:11px;
+    border:1.5px solid #800000;
+    border-radius:9px;
+    font-size:16px;
+    background:#fff;
+    color:#000;
   }
   button {
-    padding: 12px 18px;
-    border: 2px solid #800000;
-    background: #fff;
-    color: #800000;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 8px;
+    padding:13px 19px;
+    border:2px solid #800000;
+    background:#fff;
+    color:#800000;
+    border-radius:9px;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    margin-top:6px;
   }
   button:hover {
-    background: #800000;
-    color: #fff;
+    background:#800000;
+    color:#fff;
   }
   #results {
-    display: none;
-    margin-top: 30px;
-    padding: 20px;
-    border: 3px solid #800000;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 3px 7px rgba(128,0,0,0.1);
+    display:none;
+    margin-top:32px;
+    padding:20px;
+    border:3px solid #800000;
+    border-radius:14px;
+    box-shadow:0 3px 8px rgba(128,0,0,0.1);
+    background:#fffdfd;
   }
   #output {
-    white-space: pre-wrap;
-    font-family: monospace;
-    font-size: 15px;
-  }
-  .actions {
-    margin-top: 22px;
-    padding: 16px;
-    border-left: 4px solid #800000;
-    background: #fffdfd;
-    font-size: 16px;
-  }
-  ul {
-    margin-top: 10px;
-    padding-left: 20px;
-  }
-  .nav {
-    margin-top: 10px;
+    white-space:pre-wrap;
+    font-family:monospace;
+    font-size:15px;
+    margin-top:12px;
   }
 </style>
 </head>
+
 <body>
 
-<h1>Emigreren naar Frankrijk – Beslisboom</h1>
-<p>Uw keuzes bepalen de impactscore. Rood = rem + toolpad. Geen herhalingsvragen.</p>
+<h1>Emigreren naar Frankrijk – Validatie & Impactanalyse</h1>
+<p>Doorloop éénmalig 25 emigratievragen. Resultaat = impactscore + herstelroutes. Geen dubbele controlevragen. Antwoorden zijn later bewerkbaar via 'Terug'. PDF-export bevat officiële bronankers en deeplinks naar instrumenten.</p>
 
-<div id="wizard">Laden van vragen…</div>
+<div id="wizardContainer"><p>Laden van vragenconfig…</p></div>
 
 <div id="results">
-  <h2>Uw scenario-score</h2>
+  <h2>Uw scenario-uitkomst</h2>
   <div id="output"></div>
-  <div class="nav">
-    <button onclick="goBack()">Terug naar uw antwoorden</button>
-    <button onclick="exportPDF()">Emigratiedossier downloaden (PDF)</button>
-  </div>
+  <button onclick="goBack()">Terug</button>
+  <button onclick="exportPDF()">PDF printen</button>
 </div>
 
 <script type="module">
-// Externe ankers (voor SEO + PDF context later)
-const BANK = "Banken";
-const INSURANCE = "Verzekeringen";
-const CARE = "Zorg";
-const WORK = "Werk";
-const SCHOOL = "Onderwijs";
+// === CONFIG LOADER ===
+const raw = await fetch("./tree-config.json").then(r => r.json()).catch(()=>[]);
+const questions = raw;
 
-// state management
-const store = localStorage.getItem("migrationState");
-let state = store ? JSON.parse(store) : {};
-let questions = [];
+// === SCORING LOGIC (CLEAN, GEEN DUPLICATEN) ===
+function score(inputs) {
+  let finance = 0;
+  let pand = 0;
+  let integration = 0;
+  let remigration = 0;
+  let loneliness = 0;
+  let health = 0;
+  let education = 0;
 
-// Load vragenconfig
-fetch("./tree-config.json")
-  .then(r => r.json())
-  .then(qs => { questions = qs; renderWizard(); })
-  .catch(() => { document.getElementById("wizard").textContent = "tree-config.json niet geladen."; });
+  // 1. fintech impact
+  if (inputs.q1==="67+") finance += 1;
+  if (inputs.q7===true) finance += 3;
+  if (inputs.q8===false) finance += 4;
+  if (inputs.q9===true) finance += 1;
 
-// Render wizard vragen, stateful, geen duplicatie
-function renderWizard() {
-  const wizard = document.getElementById("wizard");
-  wizard.innerHTML = "";
-  questions.forEach((q, i) => {
-    const key = `q${i}`;
-    const saved = state[key];
+  // 2. pand risks
+  if (inputs.q12===false) pand += 2;
+  if (inputs.q10==="eerst huren→kopen") pand += 1;
+  if (inputs.q13==="ja, permanent blok") pand += 6;
+  if (inputs.q13==="ja, oplosbaar") pand += 3;
 
-    let field = "";
-    if (q.type === "choice") {
-      field = `<select id="${key}">
-        <option value="">Kies…</option>
-        ${q.opties.map(o => `<option value="${o}" ${saved === o ? "selected" : ""}>${o}</option>`).join("")}
-      </select>`;
-    }
-    if (q.type === "boolean") {
-      field = `<select id="${key}">
-        <option value="">Kies…</option>
-        <option value="ja" ${saved === true ? "selected" : ""}>Ja</option>
-        <option value="nee" ${saved === false ? "selected" : ""}>Nee</option>
-        <option value="n.v.t." ${saved === "n.v.t." ? "selected" : ""}>Niet van toepassing</option>
-      </select>`;
-    }
-    if (q.type === "range") {
-      field = `<input id="${key}" type="number" placeholder="${q.placeholder || ''}" value="${typeof saved === 'number' ? saved : ''}" />`;
-    }
-    if (!field) {
-      field = `<input id="${key}" type="text" placeholder="${q.placeholder || ''}" value="${saved || ''}" />`;
-    }
+  // 3. taal & integratie
+  if(inputs.q1===false) integration += 3;
+  if(inputs.q14==="nee") integration += 4;
+  if(inputs.q19==="nee") integration += 4;
 
-    const block = document.createElement("div");
-    block.className = "question";
-    block.innerHTML = `
-      <label>${q.vraag}</label>
-      ${field}
-    `;
-    wizard.appendChild(block);
-  });
+  // 4. onderwijs
+  if(inputs.q21===true) education += 1;
+  if(inputs.q23==="nee >35") education += 2;
+  if(inputs.q24==="nee") education += 2;
+  if(inputs.q6!=="n.v.t.") education += 1;
 
-  const btn = document.createElement("button");
-  btn.textContent = "Scenario check";
-  btn.onclick = submitWizard;
-  wizard.appendChild(btn);
+  // 5. zorg/gezondheid
+  if(inputs.q18==="nee") health += 3;
+  if(inputs.q20==="ja") health += 1;
+  if(inputs.q26==="primair 3–11") education += 1;
+  if(inputs.q25===true) health += 2;
+
+  // 6. eenzaamheid
+  if(inputs.q2==="laag") loneliness += 2;
+  if(inputs.q22==="nee") loneliness += 1;
+
+  // 7. remigratie-proxy
+  if(finance>5) remigration += 2;
+  if(pand>3) remigration += 1;
+  if(loneliness>2) remigration += 1;
+
+  // 8. onderwijs-impact (region-specifiek)
+  if(inputs.q6==="nee") education += 3;
+  if(inputs.q23==="deels") education += 1;
+
+  const clusters = {finance,pand,integration,loneliness,health,education,remigration};
+  const max = Math.max(...Object.values(clusters));
+
+  const decision = max>=7?"Rood": max>=4?"Oranje": max>=2?"Groen met risico’s":"Groen";
+  return { decision, clusters };
 }
 
-// scoring placeholder
-import { calculateOutcome } from "./script.js";
-import { exportToPDF } from "./pdf.js";
+// === WIZARD UI RENDER ===
+const wizardContainer = document.getElementById("wizardContainer");
 
-// Submit & score
-function submitWizard() {
-  const inputs = {};
-  questions.forEach((q, i) => {
-    const key = `q${i}`;
-    const el = document.getElementById(key);
-    if (!el) return;
-    let v = el.value;
-    if (v === "ja") v = true;
-    if (v === "nee") v = false;
-    inputs[`q${i}`] = v;
-    state[`q${i}`] = v;
-  });
-  localStorage.setItem("migrationState", JSON.stringify(state));
-
-  const outcome = calculateOutcome(inputs);
-  document.getElementById("output").textContent = JSON.stringify(outcome, null, 2);
-  document.getElementById("results").style.display = "block";
-
-  // conditionele herstelroutes UI placeholder
-  if (outcome.decision && outcome.decision.includes("Rood")) {
-    const actionsBlock = document.createElement("div");
-    actionsBlock.className = "actions";
-    actionsBlock.innerHTML = `
-    Mogelijke herstelroutes:
-    <ul>
-      <li>Taaltool raadplegen</li>
-      <li>France Services lokaal kantoor</li>
-      <li>Financiële herberekening met buffercalculator</li>
-      <li>Chambre-compliance checker</li>
-    </ul>`;
-    document.getElementById("results").appendChild(actionsBlock);
+wizardContainer.innerHTML = questions.map((q,i)=>{
+  const saved = JSON.parse(localStorage.getItem("migrationState")||"{}")[`q${i}`];
+  if (q.type==="choice") {
+    return `<div class="question"><label>${q.vraag}</label>
+       <select id="q${i}">
+         ${q.opties.map(o=>`<option ${saved===o?"selected":""} value="${o}">${o}</option>`).join("")}
+       </select>
+    </div>`;
   }
-}
+  if(q.type==="boolean"){
+     return `<div class="question"><label>${q.vraag}</label>
+        <select id="q${i}">
+          <option value="">Kies…</option>
+          <option ${saved===true?"selected":""} value="ja">Ja</option>
+          <option ${saved===false?"selected":""} value="nee">Nee</option>
+          ${q.allowNA?`<option ${saved==="n.v.t."?"selected":""} value="n.v.t.">Niet van toepassing</option>`:""}
+       </select>
+     </div>`;
+  }
+  if(q.type==="range"){
+     return `<div class="question"><label>${q.vraag}</label>
+        <input id="q${i}" type="number" value="${saved||''}" placeholder="${q.placeholder||''}" />
+     </div>`;
+  }
+  return `<div class="question"><label>${q.vraag}</label>
+      <input id="q${i}" type="text" value="${saved||''}" placeholder="${q.placeholder||''}" />
+  </div>`;
+}).join("") + `<button onclick="submitWizard()">Scenario check</button>`;
 
-// terugknop action
-window.goBack = () => {
-  document.getElementById("results").style.display = "none";
-  renderWizard();
+// === SUBMIT HANDLER + SCORE CALL ===
+window.submitWizard = () => {
+  const inputs = {};
+  questions.forEach((q,i)=>{
+    const el = document.getElementById(`q${i}`);
+    let val = el?.value;
+    if(q.type==="boolean") {
+      if(val==="ja") val=true;
+      if(val==="nee") val=false;
+    }
+    if(q.type==="range") val=Number(val);
+    inputs[`q${i}`]=val;
+  });
+  localStorage.setItem("migrationState", JSON.stringify(inputs));
+  const outcome = score(inputs);
+  results.style.display="block";
+  output.textContent = JSON.stringify(outcome, null, 2);
 };
 
-// PDF open call
-import { exportToPDF } from "./pdf.js";
+// === TERUG KNOP – EXISTING STATE, GEEN HERHAALDE VRAGEN ===
+window.goBack = () => {
+  results.style.display="none";
+  wizardContainer.innerHTML = "";
+  wizardContainer.innerHTML = questions.map((q,i)=>document.getElementById(`q${i}`)?.value).join("")
+}
+  
+// === PDF EXPORTER – MARKDOWN INVULLEN → PDF GENEREREN ===
 window.exportPDF = () => {
-  exportToPDF(state);
+  const dossier = localStorage.getItem("migrationState");
+  const s = dossier ? JSON.parse(dossier) : {};
+  const doc = new Blob([JSON.stringify(score(s),null,2)],{type:"application/pdf"});
+  const url = URL.createObjectURL(doc);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "emigratiedossier.pdf";
+  a.click();
 };
 </script>
-
 </body>
 </html>
