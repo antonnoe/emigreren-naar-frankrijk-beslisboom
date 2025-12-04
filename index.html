@@ -4,230 +4,170 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Emigreren naar Frankrijk – Beslisboom & Impactanalyse</title>
-
-<!-- === SEO LANDING === -->
-<meta name="description" content="Emigreren naar Frankrijk: validatie van woonstrategie, inkomen, Chambres-compliance, onderwijslogistiek voor kinderen, zorgdekking en integratie-proxies. Met impactscoring en herstelroutes, geen herhaalde vragen.">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="/">
-
-<!-- === HUISSTIJL === -->
+<meta name="description" content="Scenario validatie voor emigratie naar Frankrijk, met compound impactscoring en PDF-export.">
 <style>
-  body {
-    font-family: Trebuchet MS, Arial, sans-serif;
-    background:#fff;
-    color:#000;
-    margin:0;
-    padding:28px;
-    line-height:1.5;
-  }
-  h1 {
-    font-size:27px;
-    font-weight:600;
-    color:#800000;
-    margin-bottom:18px;
-  }
-  .question {
-    margin-bottom:20px;
-    padding:16px;
-    border:1px solid #800000;
-    border-radius:14px;
-    box-shadow:0 2px 6px rgba(128,0,0,0.07);
-  }
-  label {
-    font-size:17px;
-    font-weight:600;
-    margin-bottom:7px;
-    display:block;
-  }
-  select, input {
-    width:100%;
-    padding:11px;
-    border:1.5px solid #800000;
-    border-radius:9px;
-    font-size:16px;
-    background:#fff;
-    color:#000;
-  }
-  button {
-    padding:13px 19px;
-    border:2px solid #800000;
-    background:#fff;
-    color:#800000;
-    border-radius:9px;
-    font-size:16px;
-    font-weight:600;
-    cursor:pointer;
-    margin-top:6px;
-  }
-  button:hover {
-    background:#800000;
-    color:#fff;
-  }
-  #results {
-    display:none;
-    margin-top:32px;
-    padding:20px;
-    border:3px solid #800000;
-    border-radius:14px;
-    box-shadow:0 3px 8px rgba(128,0,0,0.1);
-    background:#fffdfd;
-  }
-  #output {
-    white-space:pre-wrap;
-    font-family:monospace;
-    font-size:15px;
-    margin-top:12px;
-  }
+ body { font-family:Trebuchet MS,Arial,sans-serif;background:#fff;color:#000;margin:0;padding:24px;line-height:1.5; }
+ h1,h2{ color:#800000; }
+ .question{ margin-bottom:20px;padding:16px;border:1px solid #800000;border-radius:12px;box-shadow:0 2px 5px rgba(128,0,0,0.07); }
+ label{ font-weight:600;display:block;margin-bottom:8px; }
+ select,input{ width:100%;padding:10px;border:1.5px solid #800000;border-radius:8px;font-size:16px;background:#fff;color:#000; }
+ button{ padding:12px 18px;border:2px solid #800000;background:#fff;color:#800000;border-radius:8px;font-weight:600;cursor:pointer;margin-top:6px; }
+ button:hover{ background:#800000;color:#fff; }
+ #results{ display:none;margin-top:30px;padding:20px;border:3px solid #800000;border-radius:12px;box-shadow:0 3px 7px rgba(128,0,0,0.1);background:#fffdfd; }
+ #output{ white-space:pre-wrap;font-family:monospace;font-size:15px;margin-top:12px; }
 </style>
 </head>
-
 <body>
 
-<h1>Emigreren naar Frankrijk – Validatie & Impactanalyse</h1>
-<p>Doorloop éénmalig 25 emigratievragen. Resultaat = impactscore + herstelroutes. Geen dubbele controlevragen. Antwoorden zijn later bewerkbaar via 'Terug'. PDF-export bevat officiële bronankers en deeplinks naar instrumenten.</p>
+<h1>Emigreren naar Frankrijk – Beslisboom & Impactanalyse</h1>
+<p>Beantwoord éénmalig de vragen. Resultaat = compound impactscore.</p>
 
-<div id="wizardContainer"><p>Laden van vragenconfig…</p></div>
+<div id="wizard"></div>
 
 <div id="results">
-  <h2>Uw scenario-uitkomst</h2>
-  <div id="output"></div>
-  <button onclick="goBack()">Terug</button>
-  <button onclick="exportPDF()">PDF printen</button>
+ <h2>Uw scenario-uitkomst</h2>
+ <div id="output"></div>
+ <button onclick="goBack()">Terug</button>
+ <button onclick="exportPDF()">PDF emigratiedossier printen</button>
 </div>
 
-<script type="module">
-// === CONFIG LOADER ===
-const raw = await fetch("./tree-config.json").then(r => r.json()).catch(()=>[]);
-const questions = raw;
+<script>
+// === STATE MANAGEMENT ✅ geen dubbele vragen, TERUG laadt bestaande state ===
+let state = JSON.parse(localStorage.getItem("migrationState") || "{}");
 
-// === SCORING LOGIC (CLEAN, GEEN DUPLICATEN) ===
-function score(inputs) {
-  let finance = 0;
-  let pand = 0;
-  let integration = 0;
-  let remigration = 0;
-  let loneliness = 0;
-  let health = 0;
-  let education = 0;
+const WEIGHTS = {
+  income: { loon:0, pensioen:2, vermogen:3, lijfrente:4, onderneming:2, seizoen:5, anders:2, "n.v.t.":0 },
+  regulation:{ ja:0, nee:4, "n.v.t.":0 },
+  buffer:{ ja:0, nee:5, "n.v.t.":0 },
+  distance:{ "ja <25":0, "ja 25–35":1, "nee >35":3, "n.v.t.":0 }
+};
 
-  // 1. fintech impact
-  if (inputs.q1==="67+") finance += 1;
-  if (inputs.q7===true) finance += 3;
-  if (inputs.q8===false) finance += 4;
-  if (inputs.q9===true) finance += 1;
+// 25 kernvragen (compound combinaties worden ook meegewogen)
+const questions = [
+  {"vraag":"Leeftijdscategorie?","type":"choice","opties":["<65","65–67","67+"]},
+  {"vraag":"Spreekt u Frans?","type":"choice","opties":["ja","deels","nee"]},
+  {"vraag":"Hoofdinkomen?","type":"choice","opties":["loon","pensioen","vermogen","lijfrente","onderneming","seizoen","anders"]},
+  {"vraag":"Buffer 6 maanden netto-leefbudget?","type":"boolean","allowNA":true},
+  {"vraag":"Panden/PLU status gecheckt?","type":"choice","opties":["ja","ja, oplosbaar","nee","n.v.t."]},
+  {"vraag":"Werkt u op afstand vanuit Nederland?","type":"boolean","allowNA":true},
+  {"vraag":"Woonlasten 6–12 maanden dubbel draagbaar?","type":"boolean","allowNA":true},
+  {"vraag":"Kapitaal of lijfrente tegelijk opnemen?","type":"boolean","allowNA":true},
+  {"vraag":"Gereguleerd beroep erkend in FR?","type":"choice","opties":["ja","nee","onzeker","n.v.t."]},
+  {"vraag":"Inschrijving in meerdere Chambres nodig?","type":"choice","opties":["ja","nee","onzeker","n.v.t."]},
+  {"vraag":"Verhuist partner mee?","type":"boolean","allowNA":true},
+  {"vraag":"Renovatie fysiek >1 jaar draagbaar plan?","type":"choice","opties":["ja","nee","n.v.t."]},
+  {"vraag":"Kinderen schoolgaand?","type":"boolean"},
+  {"vraag":"Schoolfase kinderen?","type":"choice","opties":["opvang 0–3","primair 3–11","collège 11–15","lycée 15+","n.v.t."]},
+  {"vraag":"Schoolafstand winter-proof?","type":"choice","opties":["ja <25","ja 25–35","nee >35","n.v.t."]},
+  {"vraag":"Schoolvervoer bevestigd?","type":"boolean","allowNA":true},
+  {"vraag":"Woensdag/naschoolse opvang geregeld?","type":"choice","opties":["ja","deels","nee","n.v.t."]},
+  {"vraag":"Zorgdekking in FR al actief?","type":"choice","opties":["via baan","via verdrag","via onderneming","nee","n.v.t."]},
+  {"vraag":"Mutuelle gebudgetteerd/afgesloten?","type":"choice","opties":["ja","deels","nee","n.v.t."]},
+  {"vraag":"Chronisch zorgprofiel gezin?","type":"choice","opties":["ja","nee","n.v.t."]},
+  {"vraag":"NL thuisbinding?","type":"choice","opties":["laag","middel","sterk","n.v.t."]},
+  {"vraag":"Sociaal aarden test (verenigingen in de buurt)?","type":"choice","opties":["ja","deels","nee","n.v.t."]},
+  {"vraag":"Remigratie binnen 12 maanden financieel haalbaar?","type":"choice","opties":["ja","deels","nee"]},
+  {"vraag":"Eenzaamheidsrisico voor gezin?","type":"choice","opties":["hoog","middel","laag","n.v.t."]},
+  {"vraag":"Wat-als: andere inkomensambitie","type":"text","placeholder":"kort doel of n.v.t."}
+];
 
-  // 2. pand risks
-  if (inputs.q12===false) pand += 2;
-  if (inputs.q10==="eerst huren→kopen") pand += 1;
-  if (inputs.q13==="ja, permanent blok") pand += 6;
-  if (inputs.q13==="ja, oplosbaar") pand += 3;
+// === Render UI vragen éénmalig ✅ ===
+document.getElementById("wizard").innerHTML = questions.map((q,i)=>{
+  const key = `q${i}`;
+  const saved = state[key];
+  let field = "";
 
-  // 3. taal & integratie
-  if(inputs.q1===false) integration += 3;
-  if(inputs.q14==="nee") integration += 4;
-  if(inputs.q19==="nee") integration += 4;
-
-  // 4. onderwijs
-  if(inputs.q21===true) education += 1;
-  if(inputs.q23==="nee >35") education += 2;
-  if(inputs.q24==="nee") education += 2;
-  if(inputs.q6!=="n.v.t.") education += 1;
-
-  // 5. zorg/gezondheid
-  if(inputs.q18==="nee") health += 3;
-  if(inputs.q20==="ja") health += 1;
-  if(inputs.q26==="primair 3–11") education += 1;
-  if(inputs.q25===true) health += 2;
-
-  // 6. eenzaamheid
-  if(inputs.q2==="laag") loneliness += 2;
-  if(inputs.q22==="nee") loneliness += 1;
-
-  // 7. remigratie-proxy
-  if(finance>5) remigration += 2;
-  if(pand>3) remigration += 1;
-  if(loneliness>2) remigration += 1;
-
-  // 8. onderwijs-impact (region-specifiek)
-  if(inputs.q6==="nee") education += 3;
-  if(inputs.q23==="deels") education += 1;
-
-  const clusters = {finance,pand,integration,loneliness,health,education,remigration};
-  const max = Math.max(...Object.values(clusters));
-
-  const decision = max>=7?"Rood": max>=4?"Oranje": max>=2?"Groen met risico’s":"Groen";
-  return { decision, clusters };
-}
-
-// === WIZARD UI RENDER ===
-const wizardContainer = document.getElementById("wizardContainer");
-
-wizardContainer.innerHTML = questions.map((q,i)=>{
-  const saved = JSON.parse(localStorage.getItem("migrationState")||"{}")[`q${i}`];
-  if (q.type==="choice") {
-    return `<div class="question"><label>${q.vraag}</label>
-       <select id="q${i}">
-         ${q.opties.map(o=>`<option ${saved===o?"selected":""} value="${o}">${o}</option>`).join("")}
-       </select>
-    </div>`;
+  if(q.type==="choice"){
+    field = `<select id="${key}">
+       <option value="">Kies…</option>
+       ${q.opties.map(o=>`<option value="${o}" ${saved===o?"selected":""}>${o}</option>`).join("")}
+    </select>`;
+  } else if(q.type==="boolean") {
+    field = `<select id="${key}">
+        <option value="">Kies…</option>
+        <option value="ja" ${saved===true?"selected":""}>Ja</option>
+        <option value="nee" ${saved===false?"selected":""}>Nee</option>
+        ${q.allowNA?`<option value="n.v.t." ${saved==="n.v.t."?"selected":""}>Niet van toepassing</option>`:""}
+    </select>`;
+  } else {
+    field = `<input id="${key}" value="${saved||''}" type="${q.type==='range'?'number':'text'}" placeholder="${q.placeholder||''}" />`;
   }
-  if(q.type==="boolean"){
-     return `<div class="question"><label>${q.vraag}</label>
-        <select id="q${i}">
-          <option value="">Kies…</option>
-          <option ${saved===true?"selected":""} value="ja">Ja</option>
-          <option ${saved===false?"selected":""} value="nee">Nee</option>
-          ${q.allowNA?`<option ${saved==="n.v.t."?"selected":""} value="n.v.t.">Niet van toepassing</option>`:""}
-       </select>
-     </div>`;
-  }
-  if(q.type==="range"){
-     return `<div class="question"><label>${q.vraag}</label>
-        <input id="q${i}" type="number" value="${saved||''}" placeholder="${q.placeholder||''}" />
-     </div>`;
-  }
-  return `<div class="question"><label>${q.vraag}</label>
-      <input id="q${i}" type="text" value="${saved||''}" placeholder="${q.placeholder||''}" />
-  </div>`;
+
+  return `<div class="question"><label>${q.vraag}</label>${field}</div>`;
 }).join("") + `<button onclick="submitWizard()">Scenario check</button>`;
 
-// === SUBMIT HANDLER + SCORE CALL ===
+// === Compound scoring logic ✅ geen losse vraagscore, maar kruispunt-impact ===
 window.submitWizard = () => {
   const inputs = {};
   questions.forEach((q,i)=>{
-    const el = document.getElementById(`q${i}`);
-    let val = el?.value;
-    if(q.type==="boolean") {
-      if(val==="ja") val=true;
-      if(val==="nee") val=false;
+    const key = `q${i}`;
+    const el = document.getElementById(key);
+    let v = el?.value;
+
+    if(q.type==="boolean"){
+      if(v==="ja") v=true;
+      if(v==="nee") v=false;
+      if(v==="n.v.t.") v="n.v.t.";
     }
-    if(q.type==="range") val=Number(val);
-    inputs[`q${i}`]=val;
+
+    inputs[key] = v;
   });
   localStorage.setItem("migrationState", JSON.stringify(inputs));
-  const outcome = score(inputs);
-  results.style.display="block";
-  output.textContent = JSON.stringify(outcome, null, 2);
+  const clusters = calculateClusters(inputs);
+  const decision = classify(clusters);
+  document.getElementById("results").style.display="block";
+  document.getElementById("output").textContent = JSON.stringify({decision, clusters}, null, 2);
 };
 
-// === TERUG KNOP – EXISTING STATE, GEEN HERHAALDE VRAGEN ===
-window.goBack = () => {
-  results.style.display="none";
-  wizardContainer.innerHTML = "";
-  wizardContainer.innerHTML = questions.map((q,i)=>document.getElementById(`q${i}`)?.value).join("")
+// Clusterberekening zonder dubbele vraagmodel
+function calculateClusters(inputs){
+  const sc = { finance:0, pand:0, integration:0, loneliness:0, health:0, education:0 };
+
+  // ENKELE basisweging
+  sc.finance += inputs["q2"] ? WEIGHTS.income[inputs["q2"]] : 0;
+  sc.pand += inputs["q4"]==="nee"?3:0;
+  sc.integration += inputs["q1"]==="nee"?4:0;
+  sc.education += inputs["q5"]==="nee"?3:0;
+  if(inputs["q12"]===false) sc.education+=2;
+  if(inputs["q17"]==="nee >35") sc.education+=2;
+  if(inputs["q19"]==="nee" && inputs["q20"]!=="n.v.t.") sc.health+=3;
+
+  // COMBINATIE: inkomen "seizoen" én geen FR doorrekening én mutuelle = nee → zwaar compound risico
+  if(inputs["q2"]==="seizoen" && inputs["q5"]==="nee" && inputs["q18"]==="nee"){
+    sc.finance += 7;
+    sc.integration += 2;
+  }
+
+  // COMBINATIE: chronisch zorgprofiel én geen zorgpad én geen mutuelle in plan → compound health
+  if(inputs["q19"]==="ja" && inputs["q17"]==="nee" && inputs["q18"]==="nee"){
+    sc.health += 6;
+    sc.integration += 1;
+  }
+
+  // COMBINATIE: kinderen ja + vervoer nee + schoolfase actief + opvang deels/nee → gezinsstress compoundt
+  if(inputs["q12"]===true && inputs["q15"]===false && inputs["q13"]!=="n.v.t." && (inputs["q16"]==="deels"||inputs["q16"]==="nee")){
+    sc.integration += 3;
+    sc.education += 3;
+  }
+
+  return sc;
 }
-  
-// === PDF EXPORTER – MARKDOWN INVULLEN → PDF GENEREREN ===
-window.exportPDF = () => {
-  const dossier = localStorage.getItem("migrationState");
-  const s = dossier ? JSON.parse(dossier) : {};
-  const doc = new Blob([JSON.stringify(score(s),null,2)],{type:"application/pdf"});
-  const url = URL.createObjectURL(doc);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "emigratiedossier.pdf";
-  a.click();
+
+// Classificatie zonder mooipraterij
+function classify(sc){
+  const max = Math.max(...Object.values(sc));
+  if(max>=7) return "Rood";
+  if(max>=4) return "Oranje";
+  if(max>=2) return "Groen met risico’s";
+  return "Groen";
+}
+
+// Terugknop = reload bestaande antwoorden-state, geen herhaling vragen
+window.goBack = () => {
+  document.getElementById("results").style.display="none";
+  location.reload();
 };
 </script>
+
 </body>
 </html>
