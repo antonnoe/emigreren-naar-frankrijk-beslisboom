@@ -3,83 +3,232 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Migreren naar Frankrijk – Scenario Check</title>
-<meta name="description" content="Interactieve emigratie-scenariocheck voor een succesvolle verhuizing naar Frankrijk. Keuzevragen, impactanalyse, en routing naar betrouwbare NL/FR bronnen en tools.">
+<title>Emigreren naar Frankrijk – Beslisboom</title>
+<meta name="description" content="Interactieve beslisboom voor migratie naar Frankrijk. Validatie van wonen, werken, onderwijs, zorg, lasten en integratie.">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://antonnoe.github.io/emigreren-naar-frankrijk-beslisboom/">
+<link rel="canonical" href="/">
 <style>
- body { font-family: Arial, sans-serif; background:#fff; color:#000; margin:0; padding:20px; }
- .question { margin-bottom:18px; padding:14px; border:1px solid #ddd; border-radius:12px; }
- button { padding:10px 16px; margin-top:6px; border:1px solid #000; background:#fff; border-radius:8px; cursor:pointer; }
- select, input { width:100%; padding:10px; border:1px solid #000; border-radius:8px; }
- #results { margin-top:30px; padding:18px; border:2px solid #000; border-radius:12px; }
+  body {
+    font-family: Trebuchet MS, Arial, sans-serif;
+    background: #fff;
+    color: #000;
+    margin: 0;
+    padding: 24px;
+    line-height: 1.5;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 600;
+    color: #800000;
+    margin-bottom: 18px;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 32px;
+    margin-bottom: 14px;
+    color: #800000;
+  }
+  .question {
+    margin-bottom: 20px;
+    padding: 16px;
+    border: 1px solid #800000;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(128,0,0,0.08);
+  }
+  label {
+    font-size: 16px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    color: #000;
+  }
+  select, input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #800000;
+    border-radius: 8px;
+    font-size: 16px;
+    background: #fff;
+    color: #000;
+  }
+  button {
+    padding: 12px 18px;
+    border: 2px solid #800000;
+    background: #fff;
+    color: #800000;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  button:hover {
+    background: #800000;
+    color: #fff;
+  }
+  #results {
+    display: none;
+    margin-top: 30px;
+    padding: 20px;
+    border: 3px solid #800000;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 7px rgba(128,0,0,0.1);
+  }
+  #output {
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 15px;
+  }
+  .actions {
+    margin-top: 22px;
+    padding: 16px;
+    border-left: 4px solid #800000;
+    background: #fffdfd;
+    font-size: 16px;
+  }
+  ul {
+    margin-top: 10px;
+    padding-left: 20px;
+  }
+  .nav {
+    margin-top: 10px;
+  }
 </style>
 </head>
 <body>
 
-<h1>Migreren naar Frankrijk – Scenario Check</h1>
-<p>Maak keuzes. Geen herhaling. Instant impact. Bewerk via 'Terug'. PDF-export met bruikbare links.</p>
+<h1>Emigreren naar Frankrijk – Beslisboom</h1>
+<p>Uw keuzes bepalen de impactscore. Rood = rem + toolpad. Geen herhalingsvragen.</p>
 
-<div id="wizard"></div>
+<div id="wizard">Laden van vragen…</div>
 
-<div id="results" style="display:none;">
-  <h2>Uw scenario-uitkomst</h2>
+<div id="results">
+  <h2>Uw scenario-score</h2>
   <div id="output"></div>
-  <button onclick="goBack()">Terug</button>
-  <button onclick="exportPDF()">PDF emigratiedossier printen</button>
+  <div class="nav">
+    <button onclick="goBack()">Terug naar uw antwoorden</button>
+    <button onclick="exportPDF()">Emigratiedossier downloaden (PDF)</button>
+  </div>
 </div>
 
 <script type="module">
+// Externe ankers (voor SEO + PDF context later)
+const BANK = "Banken";
+const INSURANCE = "Verzekeringen";
+const CARE = "Zorg";
+const WORK = "Werk";
+const SCHOOL = "Onderwijs";
+
+// state management
+const store = localStorage.getItem("migrationState");
+let state = store ? JSON.parse(store) : {};
+let questions = [];
+
+// Load vragenconfig
+fetch("./tree-config.json")
+  .then(r => r.json())
+  .then(qs => { questions = qs; renderWizard(); })
+  .catch(() => { document.getElementById("wizard").textContent = "tree-config.json niet geladen."; });
+
+// Render wizard vragen, stateful, geen duplicatie
+function renderWizard() {
+  const wizard = document.getElementById("wizard");
+  wizard.innerHTML = "";
+  questions.forEach((q, i) => {
+    const key = `q${i}`;
+    const saved = state[key];
+
+    let field = "";
+    if (q.type === "choice") {
+      field = `<select id="${key}">
+        <option value="">Kies…</option>
+        ${q.opties.map(o => `<option value="${o}" ${saved === o ? "selected" : ""}>${o}</option>`).join("")}
+      </select>`;
+    }
+    if (q.type === "boolean") {
+      field = `<select id="${key}">
+        <option value="">Kies…</option>
+        <option value="ja" ${saved === true ? "selected" : ""}>Ja</option>
+        <option value="nee" ${saved === false ? "selected" : ""}>Nee</option>
+        <option value="n.v.t." ${saved === "n.v.t." ? "selected" : ""}>Niet van toepassing</option>
+      </select>`;
+    }
+    if (q.type === "range") {
+      field = `<input id="${key}" type="number" placeholder="${q.placeholder || ''}" value="${typeof saved === 'number' ? saved : ''}" />`;
+    }
+    if (!field) {
+      field = `<input id="${key}" type="text" placeholder="${q.placeholder || ''}" value="${saved || ''}" />`;
+    }
+
+    const block = document.createElement("div");
+    block.className = "question";
+    block.innerHTML = `
+      <label>${q.vraag}</label>
+      ${field}
+    `;
+    wizard.appendChild(block);
+  });
+
+  const btn = document.createElement("button");
+  btn.textContent = "Scenario check";
+  btn.onclick = submitWizard;
+  wizard.appendChild(btn);
+}
+
+// scoring placeholder
 import { calculateOutcome } from "./script.js";
 import { exportToPDF } from "./pdf.js";
 
-// Laad configuratie
-const config = await fetch("./tree-config.json").then(r => r.json());
-
-// Render vragen
-function render(q, i, saved) {
-  if (q.type==="choice") return `
-    <select id="q${i}">
-      ${q.opties.map(o=>`<option ${saved===o?"selected":""} value="${o}">${o}</option>`).join("")}
-    </select>`;
-  if (q.type==="boolean") return `
-    <select id="q${i}">
-      <option value="">Kies…</option>
-      <option ${saved===true?"selected":""} value="ja">Ja</option>
-      <option ${saved===false?"selected":""} value="nee">Nee</option>
-      ${q.allowNA?`<option ${saved==="n.v.t."?"selected":""} value="n.v.t.">Niet van toepassing</option>`:""}
-    </select>`;
-  return `<input id="q${i}" value="${saved||''}" type="text" placeholder="${q.placeholder||''}" />`;
-}
-
-function renderWizard() {
-  const box = localStorage.getItem("migrationState");
-  const state = box ? JSON.parse(box) : {};
-  wizard.innerHTML = config.map((q,i)=>`
-    <div class="question"><label><strong>${q.vraag}</strong></label>${render(q,i,state[`q${i}`])}</div>
-  `).join("") + `<button onclick="submitWizard()">Scenario check</button>`;
-}
-
-window.submitWizard = () => {
-  const state = {};
-  config.forEach((q,i)=>{
-    const v = document.getElementById(`q${i}`).value;
-    if (v==="ja") state[`q${i}`] = true;
-    else if (v==="nee") state[`q${i}`] = false;
-    else if (v==="n.v.t.") state[`q${i}`] = "n.v.t.";
-    else state[`q${i}`] = v || "";
+// Submit & score
+function submitWizard() {
+  const inputs = {};
+  questions.forEach((q, i) => {
+    const key = `q${i}`;
+    const el = document.getElementById(key);
+    if (!el) return;
+    let v = el.value;
+    if (v === "ja") v = true;
+    if (v === "nee") v = false;
+    inputs[`q${i}`] = v;
+    state[`q${i}`] = v;
   });
   localStorage.setItem("migrationState", JSON.stringify(state));
-  const o = calculateOutcome(state);
-  results.style.display="block";
-  output.textContent = JSON.stringify(o, null, 2);
+
+  const outcome = calculateOutcome(inputs);
+  document.getElementById("output").textContent = JSON.stringify(outcome, null, 2);
+  document.getElementById("results").style.display = "block";
+
+  // conditionele herstelroutes UI placeholder
+  if (outcome.decision && outcome.decision.includes("Rood")) {
+    const actionsBlock = document.createElement("div");
+    actionsBlock.className = "actions";
+    actionsBlock.innerHTML = `
+    Mogelijke herstelroutes:
+    <ul>
+      <li>Taaltool raadplegen</li>
+      <li>France Services lokaal kantoor</li>
+      <li>Financiële herberekening met buffercalculator</li>
+      <li>Chambre-compliance checker</li>
+    </ul>`;
+    document.getElementById("results").appendChild(actionsBlock);
+  }
+}
+
+// terugknop action
+window.goBack = () => {
+  document.getElementById("results").style.display = "none";
+  renderWizard();
 };
 
-window.goBack = () => { results.style.display="none"; renderWizard(); };
-window.exportPDF = () => exportToPDF(JSON.parse(localStorage.getItem("migrationState")));
-window.exportPDF = () => exportToPDF(JSON.parse(localStorage.getItem("migrationState")));
-
-renderWizard();
+// PDF open call
+import { exportToPDF } from "./pdf.js";
+window.exportPDF = () => {
+  exportToPDF(state);
+};
 </script>
+
 </body>
 </html>
