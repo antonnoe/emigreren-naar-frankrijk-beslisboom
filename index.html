@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migreren naar Frankrijk – Scenario Check</title>
+
+<!-- SEO basics -->
+<meta name="description" content="Interactieve scenariocheck om te bepalen wat u moet regelen bij migratie naar Frankrijk. Met impactanalyse, herstelroutes en officiële NL/FR databronnen.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="/">
+
+<style>
+ body { font-family: Arial, sans-serif; background:#fff; color:#000; margin:0; padding:20px; }
+ .question { margin-bottom:18px; padding:14px; border:1px solid #ddd; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
+ h1 { font-size:24px; margin-bottom:16px; }
+ button { padding:10px 16px; margin-top:6px; border:1px solid #000; background:#fff; border-radius:8px; cursor:pointer; }
+ select, input { width:100%; padding:10px; border:1px solid #000; border-radius:8px; }
+ #results { margin-top:30px; padding:18px; border:2px solid #000; border-radius:12px; }
+</style>
+</head>
+
+<body>
+<h1>Migreren naar Frankrijk – Interactieve Scenario Check</h1>
+<p>Beantwoord onderstaande vragen om uw emigratiedossier te valideren. Uw antwoorden worden éénmalig opgeslagen en gebruikt om een impactanalyse en herstelroutes te genereren.</p>
+
+<div id="wizard"></div>
+
+<div id="results" style="display:none;">
+ <h2>Scenario-uitkomst</h2>
+ <div id="output"></div>
+ <button onclick="goBack()">Terug naar antwoorden</button>
+ <button onclick="exportPDF()">Print emigratiedossier (PDF)</button>
+</div>
+
+<script>
+// Global state holder (kan later vervangen worden door DB call)
+let state = JSON.parse(localStorage.getItem("migrationState") || "{}");
+
+// Boomconfig nog niet aanwezig → placeholder
+let questions = [];
+
+// Config loader
+async function loadConfig() {
+  try {
+    const res = await fetch("tree-config.json");
+    questions = await res.json();
+    renderWizard();
+  } catch(e) {
+    document.getElementById("wizard").innerHTML = "<p>Configuratie niet geladen. Plaats tree-config.json in de repo.</p>";
+  }
+}
+
+// Wizard render
+function renderWizard() {
+  const container = document.getElementById("wizard");
+  if (!questions.length) { container.innerHTML = ""; return; }
+  container.innerHTML = questions.map((q, i) => `
+    <div class="question">
+      <label><strong>${q.vraag}</strong></label>
+      ${renderInput(q, i)}
+    </div>
+  `).join("") + `<button onclick="submitWizard()">Check scenario</button>`;
+}
+
+// Input renderer
+function renderInput(q, i) {
+  const saved = state[`q${i}`];
+  switch(q.type) {
+    case "range": return `<input type="number" value="${saved || ''}" placeholder="${q.placeholder || ''}" />`;
+    case "choice": return `
+      <select>
+        ${(q.opties || []).map(o => `<option ${saved===o?"selected":""}>${o}</option>`).join("")}
+      </select>`;
+    case "boolean": return `
+      <select>
+        <option value="">Kies…</option>
+        <option ${saved===true?"selected":""} value="ja">Ja</option>
+        <option ${saved===false?"selected":""} value="nee">Nee</option>
+        ${q.allowNA ? `<option ${saved==="n.v.t."?"selected":""} value="n.v.t.">Niet van toepassing</option>`:""}
+      </select>`;
+    default: return `<input type="text" value="${saved || ''}" />`;
+  }
+}
+
+// Submit handler
+function submitWizard() {
+  state = {}; // reset local state-object, niet UI.
+  document.querySelectorAll(".question").forEach((div, i) => {
+    const sel = div.querySelector("select");
+    const inp = div.querySelector("input");
+    if (sel) {
+      const v = sel.value;
+      if (v==="ja") state[`q${i}`] = true;
+      else if (v==="nee") state[`q${i}`] = false;
+      else if (v==="n.v.t.") state[`q${i}`] = "n.v.t.";
+    }
+    if (inp) state[`q${i}`] = inp.value || "";
+  });
+  localStorage.setItem("migrationState", JSON.stringify(state));
+}
+
+// Wizard submit en result evaluatie
+function submitWizard() {
+  document.getElementById("results").style.display = "block";
+  document.getElementById("output").innerText = "Impactscoring en tool-routing worden hier getoond (V.02/V.03 te implementeren).";
+}
+
+// TERUG knop: laadt de antwoorden-state
+function goBack() {
+  document.getElementById("results").style.display = "none";
+  renderWizard();
+}
+
+// PDF exporter (Markdown-template volgt later)
+function exportPDF() {
+  window.open().document.write(state.toString());
+}
+
+// Placeholder voor PDF template → mapped later
+function exportPDF() {
+  document.getElementById("output").innerText = "PDF template nog niet gekoppeld. Implementeer pdf-template.md + generator in volgende versie.";
+}
+
+// Start submit via ENTER-key
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter") submitWizard();
+});
+
+// Helper to render conditioneel per node (later uit te bouwen)
+function conditionalRender(condition, html) {
+  return condition ? html : ``;
+}
+
+// Init
+loadConfig();
+</script>
+</body>
+</html>
